@@ -230,7 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             body: JSON.stringify({
                                 session_type: session.type,
                                 session_id: session.id,
-                                project: session.project,
+                                project: session.project_dir || session.project,
                                 title: displayTitle
                             })
                         });

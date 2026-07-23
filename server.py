@@ -76,8 +76,12 @@ def _exec_resume_async(session_type: str, session_id: str, project_dir: str = No
     start_t = time.time()
     print(f"⏱️ [PERF-LOG] [{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] Resume task started (OS: {sys.platform})")
     
-    # Fast path resolution
-    target_dir = resolve_project_path(project_dir)
+    # Fast path resolution: use project_dir if valid absolute path, otherwise resolve
+    if project_dir and Path(project_dir).exists() and Path(project_dir).is_dir():
+        target_dir = str(Path(project_dir).resolve())
+    else:
+        target_dir = resolve_project_path(project_dir)
+        
     t_resolved = time.time()
     print(f"⏱️ [PERF-LOG] [{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] Path resolved to '{target_dir}' in {(t_resolved - start_t)*1000:.1f}ms")
 

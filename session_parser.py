@@ -141,82 +141,95 @@ def parse_sessions(include_archived=False):
             except Exception as e:
                 print(f"Error parsing ato session {session_file}: {e}")
 
-    # 2. Parse Claude Code Sessions (~/.claude/history.jsonl)
+    # 2. Parse Claude Code Sessions (~/.claude/projects/*/<session_id>.jsonl)
     claude_dir = Path.home() / '.claude'
     if claude_dir.exists():
-        history_file = claude_dir / 'history.jsonl'
-        if history_file.exists():
-            try:
-                claude_sessions_map = {}
-                with open(history_file, 'r', encoding='utf-8') as f:
-                    for line in f:
-                        line_str = line.strip()
-                        if not line_str:
-                            continue
-                        try:
-                            item = json.loads(line_str)
-                            sess_id = item.get('sessionId') or 'default-claude'
-                            if sess_id not in claude_sessions_map:
-                                claude_sessions_map[sess_id] = {
-                                    "id": sess_id,
-                                    "type": "claude",
-                                    "project": "Global",
-                                    "model": "Claude Code",
-                                    "items": [],
-                                    "updated_at": 0
-                                }
-                            
-                            proj_path = item.get('project', '')
-                            if proj_path:
-                                proj_name = Path(proj_path).name or proj_path
-                                claude_sessions_map[sess_id]["project"] = proj_name
-
-                            ts = item.get('timestamp', 0)
-                            if ts:
-                                if ts > claude_sessions_map[sess_id]["updated_at"]:
-                                    claude_sessions_map[sess_id]["updated_at"] = ts
-
-                            claude_sessions_map[sess_id]["items"].append(item)
-                        except Exception:
-                            continue
-
-                for sess_id, sdata in claude_sessions_map.items():
-                    is_archived = sess_id in archived_ids
+        projects_dir = claude_dir / 'projects'
+        if projects_dir.exists():
+            for proj_dir in projects_dir.iterdir():
+                if not proj_dir.is_dir():
+                    continue
+                for jsonl_file in proj_dir.glob('*.jsonl'):
+                    s_id = jsonl_file.stem
+                    if len(s_id) < 10:
+                        continue
+                        
+                    is_archived = s_id in archived_ids
                     if is_archived and not include_archived:
                         continue
+                        
+                    try:
+                        first_user_text = ""
+                        last_text = ""
+                        last_role = "user"
+                        actual_cwd = ""
+                        msg_count = 0
+                        
+                        with open(jsonl_file, 'r', encoding='utf-8') as f:
+                            for line in f:
+                                lstr = line.strip()
+                                if not lstr:
+                                    continue
+                                try:
+                                    item = json.loads(lstr)
+                                    msg_type = item.get('type')
+                                    
+                                    if not actual_cwd and item.get('cwd'):
+                                        actual_cwd = item.get('cwd')
+                                        
+                                    if msg_type in ('user', 'assistant'):
+                                        msg_count += 1
+                                        last_role = msg_type
+                                        msg_obj = item.get('message', {})
+                                        content = msg_obj.get('content', '')
+                                        
+                                        text_content = ""
+                                        if isinstance(content, str):
+                                            text_content = content
+                                        elif isinstance(content, list):
+                                            parts = []
+                                            for part in content:
+                                                if isinstance(part, dict) and part.get('type') == 'text':
+                                                    parts.append(part.get('text', ''))
+                                                elif isinstance(part, str):
+                                                    parts.append(part)
+                                            text_content = "\n".join(parts)
+                                            
+                                        if text_content.strip():
+                                            if not first_user_text and msg_type == 'user':
+                                                first_user_text = text_content[:80]
+                                            last_text = text_content[:150]
+                                except Exception:
+                                    continue
+                                    
+                        if not actual_cwd:
+                            raw_dirname = proj_dir.name
+                            if raw_dirname.startswith('-'):
+                                actual_cwd = '/' + raw_dirname[1:].replace('-', '/')
+                                
+                        proj_display = Path(actual_cwd).name if actual_cwd else proj_dir.name
+                        updated_at = datetime.fromtimestamp(jsonl_file.stat().st_mtime).isoformat()
+                        needs_rev = check_needs_review("claude", last_role, last_text)
+                        is_recent = (datetime.now() - datetime.fromtimestamp(jsonl_file.stat().st_mtime)).total_seconds() < 86400
 
-                    items = sdata["items"]
-                    last_display = ""
-                    if items:
-                        last_display = items[-1].get('display', '')
+                        display_title = custom_titles.get(s_id) or claude_names.get(s_id) or first_user_text or f"claude-{s_id[:8]}"
 
-                    ts_val = sdata["updated_at"]
-                    if ts_val > 0:
-                        iso_date = datetime.fromtimestamp(ts_val / 1000.0).isoformat()
-                    else:
-                        iso_date = datetime.fromtimestamp(history_file.stat().st_mtime).isoformat()
-
-                    raw_claude_name = claude_names.get(sess_id)
-                    display_name = custom_titles.get(sess_id) or raw_claude_name or sdata["project"]
-                    needs_rev = check_needs_review("claude", "user", last_display)
-                    ts_dt = datetime.fromtimestamp(ts_val / 1000.0) if ts_val > 0 else datetime.fromtimestamp(history_file.stat().st_mtime)
-                    is_recent = (datetime.now() - ts_dt).total_seconds() < 86400
-
-                    sessions.append({
-                        "id": sess_id,
-                        "type": "claude",
-                        "project": sdata["project"],
-                        "title": display_name,
-                        "model": "Claude Code",
-                        "message_count": len(items),
-                        "last_message": last_display[:150] or "操作ログあり",
-                        "updated_at": iso_date,
-                        "is_archived": is_archived,
-                        "needs_review": needs_rev,
-                        "is_recent": is_recent
-                    })
-            except Exception as e:
-                print(f"Error parsing claude history: {e}")
+                        sessions.append({
+                            "id": s_id,
+                            "type": "claude",
+                            "project": proj_display,
+                            "project_dir": actual_cwd or str(Path.home()),
+                            "title": display_title,
+                            "model": "Claude Code",
+                            "message_count": msg_count or 1,
+                            "last_message": last_text or "対話ログあり",
+                            "updated_at": updated_at,
+                            "is_archived": is_archived,
+                            "needs_review": needs_rev,
+                            "is_recent": is_recent
+                        })
+                    except Exception as e:
+                        print(f"Error parsing claude jsonl {jsonl_file}: {e}")
 
     # 3. Parse agy (Antigravity CLI) Sessions (~/.gemini/antigravity-cli/brain/<uuid>/)
     gemini_dir = Path.home() / '.gemini' / 'antigravity-cli' / 'brain'
