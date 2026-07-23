@@ -126,27 +126,32 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Error fetching stats:", error);
         }
     }
-
-    const toggleArchivedBtn = document.getElementById('toggle-archived-btn');
     let showArchived = false;
+    let showSubagents = false;
+    
+    const toggleArchivedBtn = document.getElementById('toggle-archived-btn');
+    if (toggleArchivedBtn) {
+        toggleArchivedBtn.addEventListener('click', () => {
+            showArchived = !showArchived;
+            toggleArchivedBtn.style.borderColor = showArchived ? 'var(--claude-color)' : '';
+            toggleArchivedBtn.style.color = showArchived ? 'var(--claude-color)' : '';
+            fetchSessions(false);
+        });
+    }
 
-    toggleArchivedBtn.addEventListener('click', () => {
-        showArchived = !showArchived;
-        if (showArchived) {
-            toggleArchivedBtn.style.borderColor = 'var(--ato-color)';
-            toggleArchivedBtn.style.color = 'var(--ato-color)';
-            toggleArchivedBtn.innerText = '📦 Hide Archived';
-        } else {
-            toggleArchivedBtn.style.borderColor = 'var(--glass-border)';
-            toggleArchivedBtn.style.color = 'var(--text-primary)';
-            toggleArchivedBtn.innerText = '📦 Show Archived';
-        }
-        fetchSessions(false);
-    });
+    const toggleSubagentsBtn = document.getElementById('toggle-subagents-btn');
+    if (toggleSubagentsBtn) {
+        toggleSubagentsBtn.addEventListener('click', () => {
+            showSubagents = !showSubagents;
+            toggleSubagentsBtn.style.borderColor = showSubagents ? '#a855f7' : '';
+            toggleSubagentsBtn.style.color = showSubagents ? '#a855f7' : '';
+            fetchSessions(false);
+        });
+    }
 
     // Fetch and render sessions
-    async function fetchSessions(isSilent = false) {
-        if (!isSilent) {
+    async function fetchSessions(isQuiet = false) {
+        if (!isQuiet) {
             sessionsContainer.innerHTML = '<div class="loading">Loading sessions...</div>';
         }
         try {
@@ -154,6 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (searchInput.value) query.append('search', searchInput.value);
             if (typeFilter.value) query.append('type', typeFilter.value);
             if (showArchived) query.append('include_archived', 'true');
+            if (showSubagents) query.append('show_subagents', 'true');
             
             const res = await fetch(`/api/sessions?${query.toString()}`);
             const data = await res.json();
@@ -182,10 +188,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="session-title-area">
                             <div class="session-title-row">
                                 <span class="badge badge-${session.type}">${session.type}</span>
+                                ${session.is_subagent ? '<span class="badge badge-subagent" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.5);">🤖 Subagent</span>' : ''}
                                 ${session.needs_review ? '<span class="badge badge-review">🔔 Needs Review</span>' : ''}
                                 ${session.is_recent ? '<span class="badge badge-recent">⚡ Updated</span>' : ''}
                                 <span class="session-title">${displayTitle}</span>
-                            </div>
+                            </div>     </div>
                             ${session.project && session.project !== displayTitle ? `<span style="font-size: 0.8rem; color: var(--text-secondary);">(${session.project})</span>` : ''}
                         </div>
                         <div class="session-actions">

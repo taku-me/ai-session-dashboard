@@ -124,8 +124,13 @@ def parse_sessions(include_archived=False):
 
                     project_name = data.get('project') or data.get('name') or 'atoTerminal'
                     updated_at = data.get('updated_at') or datetime.fromtimestamp(session_file.stat().st_mtime).isoformat()
-
                     display_name = custom_titles.get(session_id) or project_name
+                    needs_rev = check_needs_review("ato", last_role, last_message)
+                    is_recent = (datetime.now() - datetime.fromtimestamp(session_file.stat().st_mtime)).total_seconds() < 86400
+
+                    is_subagent = False
+                    if "subagent" in display_name.lower() or "subagent" in last_message.lower():
+                        is_subagent = True
 
                     sessions.append({
                         "id": session_id,
@@ -136,7 +141,10 @@ def parse_sessions(include_archived=False):
                         "message_count": len(all_messages),
                         "last_message": last_message or "会話ログあり",
                         "updated_at": updated_at,
-                        "is_archived": is_archived
+                        "is_archived": is_archived,
+                        "needs_review": needs_rev,
+                        "is_recent": is_recent,
+                        "is_subagent": is_subagent
                     })
             except Exception as e:
                 print(f"Error parsing ato session {session_file}: {e}")
@@ -214,6 +222,11 @@ def parse_sessions(include_archived=False):
 
                         display_title = custom_titles.get(s_id) or claude_names.get(s_id) or first_user_text or f"claude-{s_id[:8]}"
 
+                        # Subagent detection for Claude
+                        is_subagent = False
+                        if "--claude-worktrees-" in proj_dir.name or "このセッションの会話から" in first_user_text or first_user_text.startswith("Task description:") or "subagent" in first_user_text.lower():
+                            is_subagent = True
+
                         sessions.append({
                             "id": s_id,
                             "type": "claude",
@@ -226,7 +239,8 @@ def parse_sessions(include_archived=False):
                             "updated_at": updated_at,
                             "is_archived": is_archived,
                             "needs_review": needs_rev,
-                            "is_recent": is_recent
+                            "is_recent": is_recent,
+                            "is_subagent": is_subagent
                         })
                     except Exception as e:
                         print(f"Error parsing claude jsonl {jsonl_file}: {e}")
@@ -249,6 +263,7 @@ def parse_sessions(include_archived=False):
                     first_user_req = ""
                     last_msg = ""
                     last_role = ""
+                    is_subagent = False
                     
                     with open(transcript_file, 'r', encoding='utf-8') as f:
                         for line in f:
@@ -265,35 +280,43 @@ def parse_sessions(include_archived=False):
                                 first_user_req = req.split('\n')[0][:80]
                             else:
                                 first_user_req = content[:80]
+                                
+                            if 'invoke_subagent' in content or 'Subagent' in content or 'role' in content.lower():
+                                if '<USER_REQUEST>' not in content and ('Subagent' in content or 'research' in content.lower() or 'Role:' in content):
+                                    is_subagent = True
                         except Exception:
                             first_user_req = "agy session"
 
                         try:
                             item_last = json.loads(all_lines[-1])
                             last_role = item_last.get('type', '')
-                            content = item_last.get('content', '') or item_last.get('thinking', '')
-                            last_msg = str(content)[:150]
+                            last_content = item_last.get('content', '')
+                            if isinstance(last_content, str):
+                                last_msg = last_content[:150]
+                            elif isinstance(last_content, list):
+                                last_msg = str(last_content)[:150]
                         except Exception:
-                            last_msg = first_user_req
+                            last_msg = "操作ログあり"
 
-                    updated_at = datetime.fromtimestamp(transcript_file.stat().st_mtime).isoformat()
-                    raw_title = custom_titles.get(sess_id) or first_user_req or f"agy-{sess_id[:8]}"
-                    needs_rev = check_needs_review("agy", last_role, last_msg)
-                    is_recent = (datetime.now() - datetime.fromtimestamp(transcript_file.stat().st_mtime)).total_seconds() < 86400
+                        updated_at = datetime.fromtimestamp(transcript_file.stat().st_mtime).isoformat()
+                        needs_rev = check_needs_review("agy", last_role, last_msg)
+                        is_recent = (datetime.now() - datetime.fromtimestamp(transcript_file.stat().st_mtime)).total_seconds() < 86400
 
-                    sessions.append({
-                        "id": sess_id,
-                        "type": "agy",
-                        "project": "Antigravity",
-                        "title": raw_title,
-                        "model": "Gemini (AGY)",
-                        "message_count": len(all_lines),
-                        "last_message": last_msg or "対話ログあり",
-                        "updated_at": updated_at,
-                        "is_archived": is_archived,
-                        "needs_review": needs_rev,
-                        "is_recent": is_recent
-                    })
+                        sessions.append({
+                            "id": sess_id,
+                            "type": "agy",
+                            "project": "Antigravity",
+                            "project_dir": str(Path.home()),
+                            "title": custom_titles.get(sess_id) or first_user_req or f"agy-{sess_id[:8]}",
+                            "model": "Gemini (AGY)",
+                            "message_count": len(all_lines),
+                            "last_message": last_msg or "対話ログあり",
+                            "updated_at": updated_at,
+                            "is_archived": is_archived,
+                            "needs_review": needs_rev,
+                            "is_recent": is_recent,
+                            "is_subagent": is_subagent
+                        })
                 except Exception as e:
                     print(f"Error parsing agy session {sess_dir}: {e}")
 

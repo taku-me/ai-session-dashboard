@@ -199,9 +199,13 @@ def get_stats():
     return session_parser.get_stats()
 
 @app.get("/api/sessions")
-def get_sessions(type: str = None, project: str = None, search: str = None, include_archived: bool = False, limit: int = 100):
+def get_sessions(type: str = None, project: str = None, search: str = None, include_archived: bool = False, show_subagents: bool = False, limit: int = 100):
     sessions = session_parser.parse_sessions(include_archived=include_archived)
     
+    # Filter subagents by default unless show_subagents is True
+    if not show_subagents:
+        sessions = [s for s in sessions if not s.get("is_subagent")]
+        
     if type:
         sessions = [s for s in sessions if s.get("type") == type]
     if project:
