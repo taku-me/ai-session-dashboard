@@ -224,9 +224,9 @@ def parse_sessions(include_archived=False):
 
                         display_title = custom_titles.get(s_id) or claude_names.get(s_id) or first_user_text or f"claude-{s_id[:8]}"
 
-                        # Subagent detection for Claude
+                        # Subagent detection for Claude (only genuine internal subagents)
                         is_subagent = False
-                        if "--claude-worktrees-" in proj_dir.name or "このセッションの会話から" in first_user_text or first_user_text.startswith("Task description:") or "subagent" in first_user_text.lower():
+                        if "--claude-worktrees-" in proj_dir.name or first_user_text.startswith("Task description:") or "このセッションの会話から、以下" in first_user_text:
                             is_subagent = True
 
                         sessions.append({
@@ -283,9 +283,8 @@ def parse_sessions(include_archived=False):
                             else:
                                 first_user_req = content[:80]
                                 
-                            if 'invoke_subagent' in content or 'Subagent' in content or 'role' in content.lower():
-                                if '<USER_REQUEST>' not in content and ('Subagent' in content or 'research' in content.lower() or 'Role:' in content):
-                                    is_subagent = True
+                            if '<USER_REQUEST>' not in content and ('Subagent:' in content or 'invoke_subagent' in content or 'Role:' in content):
+                                is_subagent = True
                         except Exception:
                             first_user_req = "agy session"
 
