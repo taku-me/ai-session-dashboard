@@ -28,8 +28,18 @@ def set_custom_title(session_id, title):
         json.dump(titles, f, ensure_ascii=False, indent=2)
     return title
 
+CLAUDE_NAMES_FILE = DATA_DIR / "claude_session_names.json"
+
 def get_claude_session_names():
-    names = {}
+    cached = {}
+    if CLAUDE_NAMES_FILE.exists():
+        try:
+            with open(CLAUDE_NAMES_FILE, 'r', encoding='utf-8') as f:
+                cached = json.load(f)
+        except Exception:
+            cached = {}
+            
+    updated = False
     claude_dir = Path.home() / '.claude'
     if claude_dir.exists():
         for sf in claude_dir.glob('sessions/*.json'):
@@ -38,11 +48,20 @@ def get_claude_session_names():
                     data = json.load(f)
                     sess_id = data.get('sessionId')
                     name = data.get('name')
-                    if sess_id and name:
-                        names[sess_id] = name
+                    if sess_id and name and cached.get(sess_id) != name:
+                        cached[sess_id] = name
+                        updated = True
             except Exception:
                 pass
-    return names
+                
+    if updated:
+        try:
+            with open(CLAUDE_NAMES_FILE, 'w', encoding='utf-8') as f:
+                json.dump(cached, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"Error saving claude names cache: {e}")
+            
+    return cached
 
 def get_archived_session_ids():
     if ARCHIVED_SESSIONS_FILE.exists():
