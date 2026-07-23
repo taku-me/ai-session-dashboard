@@ -1,0 +1,22 @@
+# Virtual environment
+.venv/
+env/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Operating System
+.DS_Store
+Thumbs.db
+
+# Personal / Local data
+data/custom_titles.json
+data/archived_sessions.json
+data/commander_history.json
+
+# Zip archives
+*.zip

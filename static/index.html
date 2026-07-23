@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>atoTerminal & Claude Code Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css?v=1.0.1">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+    <div class="background">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1><span class="gradient-text">atoTerminal</span> & Claude Code</h1>
+            <div class="header-actions">
+                <button id="commander-btn" class="glass-btn" style="color: #fbbf24; border-color: rgba(251, 191, 36, 0.5);">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h20M2 10h20M2 16h20M2 22h20"/><path d="M4 4l4 18M20 4l-4 18"/></svg>
+                    👑 Commander
+                </button>
+                <button id="refresh-btn" class="glass-btn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.59-10.36l5.25 4.79"/></svg>
+                    Refresh
+                </button>
+            </div>
+        </header>
+
+        <section class="stats-grid" id="stats-container">
+            <!-- Stats will be injected here -->
+        </section>
+
+        <section class="main-content">
+            <div class="filters glass-panel">
+                <input type="text" id="search-input" placeholder="Search sessions..." class="glass-input">
+                <select id="type-filter" class="glass-input">
+                    <option value="">All Types</option>
+                    <option value="ato">atoTerminal</option>
+                    <option value="claude">Claude Code</option>
+                    <option value="agy">Antigravity (AGY)</option>
+                </select>
+                <select id="status-filter" class="glass-input">
+                    <option value="">All Statuses</option>
+                    <option value="needs_review">🔔 Needs Review (確認依頼あり)</option>
+                    <option value="recent">⚡ Updated 24h (直近更新)</option>
+                </select>
+                <button id="toggle-archived-btn" class="glass-btn" style="font-size: 0.9rem;">
+                    📦 Show Archived
+                </button>
+            </div>
+
+            <div class="sessions-list" id="sessions-container">
+                <!-- Sessions will be injected here -->
+                <div class="loading">Loading sessions...</div>
+            </div>
+        </section>
+
+        <!-- Commander Panel -->
+        <section id="commander-panel" class="commander-panel glass-panel" style="display: none;">
+            <div class="commander-header">
+                <h2>👑 <span class="commander-title">Commander</span> Console</h2>
+            </div>
+            <div class="commander-body">
+                <div class="commander-controls">
+                    <select id="commander-target" class="glass-input commander-input">
+                        <option value="all">All Sessions</option>
+                        <option value="ato">All atoTerminal</option>
+                        <option value="claude">All Claude Code</option>
+                        <!-- Individual sessions populated via JS -->
+                    </select>
+                </div>
+                <div class="commander-input-area">
+                    <textarea id="commander-instruction" class="glass-input commander-textarea" placeholder="Enter operation instruction for the target(s)..."></textarea>
+                    <button id="commander-dispatch-btn" class="glass-btn commander-btn">
+                        Dispatch Command
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    </button>
+                </div>
+                
+                <div class="commander-history-container">
+                    <h3>Command Timeline</h3>
+                    <div id="commander-timeline" class="commander-timeline">
+                        <!-- Timeline will be injected here -->
+                        <div class="loading">Loading timeline...</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div id="session-modal" class="modal">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h2 id="modal-title">Session Details</h2>
+                <button id="close-modal" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- Session details will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js?v=1.0.4"></script>
+</body>
+</html>

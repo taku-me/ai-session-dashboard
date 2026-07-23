@@ -1,0 +1,10 @@
+[project]
+name = "ai-session-dashboard"
+version = "0.1.0"
+description = "Unified Control Dashboard for atoTerminal, Claude Code, and Antigravity (AGY) sessions"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.20.0",
+    "pydantic>=2.0.0",
+]
