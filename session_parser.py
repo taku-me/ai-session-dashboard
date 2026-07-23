@@ -112,9 +112,11 @@ def parse_sessions(include_archived=False):
                         all_messages = data.get('messages', [])
 
                     last_message = ""
+                    last_role = "user"
                     if all_messages:
                         last_msg_obj = all_messages[-1]
                         if isinstance(last_msg_obj, dict):
+                            last_role = last_msg_obj.get('role', 'user')
                             content = last_msg_obj.get('content', '')
                             if isinstance(content, str):
                                 last_message = content[:150]
