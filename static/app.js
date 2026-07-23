@@ -17,14 +17,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const commanderTimeline = document.getElementById('commander-timeline');
 
     // Toggle Commander Panel
-    commanderBtn.addEventListener('click', () => {
-        if (commanderPanel.style.display === 'none') {
-            commanderPanel.style.display = 'block';
-            fetchCommanderHistory();
-        } else {
-            commanderPanel.style.display = 'none';
-        }
-    });
+    if (commanderBtn && commanderPanel) {
+        commanderBtn.addEventListener('click', () => {
+            if (commanderPanel.style.display === 'none' || !commanderPanel.style.display) {
+                commanderPanel.style.display = 'block';
+                commanderPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                fetchCommanderHistory();
+            } else {
+                commanderPanel.style.display = 'none';
+            }
+        });
+    }
 
     // Fetch and render commander history
     async function fetchCommanderHistory() {
