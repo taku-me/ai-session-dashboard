@@ -4,6 +4,7 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import os
+import sys
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -83,32 +84,27 @@ def _exec_resume_async(session_type: str, session_id: str, project_dir: str = No
     if session_type == 'claude':
         cmd_str = f"claude --resume '{session_id}'" if sys.platform != 'win32' else f"claude --resume \"{session_id}\""
         tab_title = f"Claude: {title or session_id[:8]}"
+        post_send_cmd = None
     elif session_type == 'agy':
         cmd_str = "agy"
         tab_title = f"AGY: {title or session_id[:8]}"
+        post_send_cmd = None
     else:
         cmd_str = "uv run ato"
         tab_title = f"ato: {title or session_id[:8]}"
+        post_send_cmd = f"/session load {session_id}"
 
     # 1. Windows Platform -> Windows Terminal (wt.exe)
     if sys.platform == 'win32':
         wt_bin = shutil.which("wt.exe") or "wt.exe"
         try:
-            # wt -w 0 nt --title "Title" -d "C:\path" cmd /k "cmd_str"
             wt_cmd = [wt_bin, "-w", "0", "nt", "--title", tab_title, "-d", target_dir, "cmd", "/k", cmd_str]
             subprocess.Popen(wt_cmd)
             print(f"⏱️ [PERF-LOG] Launched via Windows Terminal (wt.exe): {wt_cmd}")
             return
         except Exception as e:
             print(f"❌ [PERF-LOG] wt.exe launch error: {e}")
-            try:
-                # Fallback to start cmd
-                subprocess.Popen(f'start cmd /k "cd /d \"{target_dir}\" && {cmd_str}"', shell=True)
-                print(f"⏱️ [PERF-LOG] Launched via standard Windows cmd")
-                return
-            except Exception as e2:
-                print(f"❌ [PERF-LOG] cmd launch error: {e2}")
-                return
+            return
 
     # 2. macOS Platform -> cmux
     cmux_bin = shutil.which("cmux") or "/Applications/cmux.app/Contents/Resources/bin/cmux"
@@ -154,6 +150,16 @@ def _exec_resume_async(session_type: str, session_id: str, project_dir: str = No
                     
                     rename_cmd = f"'{cmux_bin}' rename-tab --surface {target_surface} '{tab_title}'"
                     subprocess.run(rename_cmd, shell=True, capture_output=True, timeout=3, env=env)
+
+                    # If ato session, send /session load after REPL boots
+                    if post_send_cmd:
+                        def _send_post_cmd():
+                            time.sleep(2.5) # Wait for ato REPL boot
+                            escaped_post = post_send_cmd.replace("'", "'\\''")
+                            subprocess.run(f"'{cmux_bin}' send --surface {target_surface} '{escaped_post}\n'", shell=True, env=env)
+                            subprocess.run(f"'{cmux_bin}' send-key --surface {target_surface} enter", shell=True, env=env)
+                            print(f"⏱️ [PERF-LOG] Auto-loaded ato session with {post_send_cmd}")
+                        threading.Thread(target=_send_post_cmd, daemon=True).start()
                     
                     t_after_send = time.time()
                     total_elapsed = (t_after_send - start_t) * 1000
