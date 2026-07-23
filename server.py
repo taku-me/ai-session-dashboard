@@ -245,16 +245,47 @@ class DispatchRequest(BaseModel):
     target: str
     instruction: str
 
-commander_history_file = current_dir / "commander_history.json"
+commander_history_file = current_dir / "data" / "commander_history.json"
+
+def _exec_commander_dispatch_async(target: str, instruction: str):
+    cmux_bin = shutil.which("cmux") or "/Applications/cmux.app/Contents/Resources/bin/cmux"
+    env = os.environ.copy()
+    
+    if not os.path.exists(cmux_bin):
+        print(f"⚠️ [COMMANDER] cmux bin not found")
+        return
+
+    try:
+        # Find all active surfaces
+        tree_res = subprocess.run([f"'{cmux_bin}'", "tree", "--workspace", "workspace:1"], shell=True, capture_output=True, text=True, timeout=3, env=env)
+        surfaces = []
+        if tree_res.returncode == 0:
+            for line in tree_res.stdout.splitlines():
+                if "surface:" in line and "[terminal]" in line:
+                    m_surf = re.search(r'surface:\d+', line)
+                    if m_surf:
+                        surfaces.append(m_surf.group(0))
+
+        escaped_instruction = instruction.replace("'", "'\\''")
+        
+        for surf in surfaces:
+            send_cmd = f"'{cmux_bin}' send --surface {surf} '{escaped_instruction}\n'"
+            subprocess.run(send_cmd, shell=True, capture_output=True, timeout=3, env=env)
+            key_cmd = f"'{cmux_bin}' send-key --surface {surf} enter"
+            subprocess.run(key_cmd, shell=True, capture_output=True, timeout=3, env=env)
+            print(f"👑 [COMMANDER] Dispatched instruction to {surf}")
+
+    except Exception as e:
+        print(f"❌ [COMMANDER] Dispatch error: {e}")
 
 @app.post("/api/commander/dispatch")
 def dispatch_command(req: DispatchRequest):
     try:
         if commander_history_file.exists():
-            with open(commander_history_file, 'r') as f:
+            with open(commander_history_file, 'r', encoding='utf-8') as f:
                 try:
                     history = json.load(f)
-                except:
+                except Exception:
                     history = []
         else:
             history = []
@@ -268,9 +299,14 @@ def dispatch_command(req: DispatchRequest):
         }
         history.append(entry)
         
-        with open(commander_history_file, 'w') as f:
+        commander_history_file.parent.mkdir(exist_ok=True)
+        with open(commander_history_file, 'w', encoding='utf-8') as f:
             json.dump(history, f, indent=2, ensure_ascii=False)
             
+        # Dispatch command to cmux in background thread
+        t = threading.Thread(target=_exec_commander_dispatch_async, args=(req.target, req.instruction), daemon=True)
+        t.start()
+
         return {"status": "success", "entry": entry}
     except Exception as e:
         return {"status": "error", "message": str(e)}
